@@ -17,6 +17,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import threading
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 
@@ -27,8 +28,8 @@ from pydantic import BaseModel, Field
 from conjunction.config import settings
 from conjunction.ingestion.service import ingest_altitude_band
 from conjunction.propagation.catalog import load_catalog, propagate_catalog
-from conjunction.propagation.sgp4_propagator import load_satellite, propagate_at
-from conjunction.risk.geodesy import teme_to_geodetic
+from conjunction.propagation.sgp4_propagator import load_satellite, propagate_all_at
+from conjunction.risk.geodesy import teme_to_geodetic, teme_to_geodetic_batch
 from conjunction.risk.pairwise import screen_catalog
 from conjunction.risk.pc import probability_of_collision
 from conjunction.risk.proximity import RED_KM, YELLOW_KM, compute_proximity
@@ -149,44 +150,98 @@ def _guess_kind(name: str) -> str:
     return "satellite"
 
 
+# ---------------------------------------------------------------------------
+# Propagated-snapshot cache.
+#
+# The dashboard polls /api/proximity every ~10s and /api/catalog every ~60s,
+# potentially from several browsers at once. Recomputing 26k+ TLE parses and
+# SGP4 calls per request saturated the CPU and OOM-killed small containers
+# (the original per-request loop was written for a ~400-object cache). Two
+# cache layers fix it:
+#   1. Parsed Satrec objects, keyed by the TLE db's mtime — reparsed only
+#      after a background refresh rewrites the cache.
+#   2. A propagated geodetic snapshot, shared by every request within a
+#      SNAPSHOT_TTL_SECONDS bucket, computed once (single-flight lock) via
+#      vectorized SatrecArray + batch geodetic conversion (~tens of ms).
+# ---------------------------------------------------------------------------
+SNAPSHOT_TTL_SECONDS = int(os.getenv("SNAPSHOT_TTL_SECONDS", "10"))
+
+_satcache_lock = threading.Lock()
+_satcache: dict = {"mtime": None, "entries": None}  # entries: list[(CatalogObject, Satrec)]
+
+_snapshot_lock = threading.Lock()
+_snapshot: dict = {"bucket": None, "objects": None}
+
+
+def _load_satellites() -> list:
+    """Catalog rows + parsed Satrecs, reloaded only when the TLE db changes."""
+    try:
+        mtime = os.path.getmtime(settings.tle_db_path)
+    except OSError:
+        mtime = None
+    with _satcache_lock:
+        if _satcache["mtime"] != mtime or _satcache["entries"] is None:
+            catalog = load_catalog()
+            entries = []
+            for obj in catalog:
+                try:
+                    entries.append((obj, load_satellite(obj.line1, obj.line2)))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Skipping NORAD %d (%s): %s", obj.norad_id, obj.name, exc)
+            _satcache["mtime"] = mtime
+            _satcache["entries"] = entries
+            logger.info("Satrec cache rebuilt: %d objects", len(entries))
+        return _satcache["entries"]
+
+
+def _compute_snapshot(at: datetime) -> list[dict]:
+    entries = _load_satellites()
+    if not entries:
+        return []
+    positions, error_codes = propagate_all_at([s for _, s in entries], at)
+    lats, lons, alts = teme_to_geodetic_batch(positions, at)
+
+    results = []
+    for i, (obj, _sat) in enumerate(entries):
+        if error_codes[i] != 0:
+            continue
+        results.append(
+            {
+                "norad_id": obj.norad_id,
+                "name": obj.name,
+                "kind": _guess_kind(obj.name),
+                "altitude_km": float(alts[i]),
+                "lat": float(lats[i]),
+                "lon": float(lons[i]),
+            }
+        )
+    return results
+
+
 def _propagate_catalog_now(at: datetime, min_alt: float | None, max_alt: float | None) -> list[dict]:
-    """Load the cached catalog and propagate every object to `at`, returning
-    geodetic positions. This recomputes SGP4 on every call rather than
-    caching — fine at the scale of a few hundred cached objects; add
-    caching here first if this ever becomes a bottleneck."""
-    catalog = load_catalog()
-    if not catalog:
+    """Geodetic positions for the whole catalog at `at`, served from the
+    shared snapshot cache; only the altitude filter is per-request."""
+    bucket = int(at.timestamp() // SNAPSHOT_TTL_SECONDS)
+    with _snapshot_lock:
+        if _snapshot["bucket"] != bucket:
+            _snapshot["objects"] = _compute_snapshot(at)
+            _snapshot["bucket"] = bucket
+        objects = _snapshot["objects"]
+
+    if not objects:
         raise HTTPException(
             status_code=404,
             detail="No cached objects found. Run scripts/fetch_tles.py first.",
         )
 
     results = []
-    for obj in catalog:
-        try:
-            satrec = load_satellite(obj.line1, obj.line2)
-            state = propagate_at(satrec, at)
-            if state.error_code != 0:
-                continue
-            lat, lon, alt_km = teme_to_geodetic(tuple(state.position_km), at)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Skipping NORAD %d (%s): %s", obj.norad_id, obj.name, exc)
-            continue
-
+    for entry in objects:
+        alt_km = entry["altitude_km"]
         if min_alt is not None and alt_km < min_alt:
             continue
         if max_alt is not None and alt_km > max_alt:
             continue
-
-        results.append(
-            {
-                "norad_id": obj.norad_id,
-                "name": obj.name,
-                "kind": _guess_kind(obj.name),
-                "altitude_km": alt_km,
-                "lat": lat,
-                "lon": lon,
-            }
+        results.append(entry
         )
     return results
 

@@ -21,3 +21,24 @@ def test_bearing_cardinal_directions():
     assert abs(bearing_deg(0, 0, 0, 1) - 90) < 0.5
     assert abs(bearing_deg(0, 0, -1, 0) - 180) < 0.5
     assert abs(bearing_deg(0, 0, 0, -1) - 270) < 0.5
+
+
+def test_batch_matches_scalar_conversion():
+    import numpy as np
+
+    from conjunction.risk.geodesy import teme_to_geodetic, teme_to_geodetic_batch
+
+    dt = datetime(2026, 7, 18, 6, 0, 0, tzinfo=timezone.utc)
+    positions = np.array(
+        [
+            [7000.0, 0.0, 0.0],
+            [-3000.0, 5500.0, 2000.0],
+            [100.0, -6800.0, -900.0],
+        ]
+    )
+    lats, lons, alts = teme_to_geodetic_batch(positions, dt)
+    for i in range(positions.shape[0]):
+        lat_s, lon_s, alt_s = teme_to_geodetic(tuple(positions[i]), dt)
+        assert abs(lats[i] - lat_s) < 1e-9
+        assert abs(lons[i] - lon_s) < 1e-9
+        assert abs(alts[i] - alt_s) < 1e-9

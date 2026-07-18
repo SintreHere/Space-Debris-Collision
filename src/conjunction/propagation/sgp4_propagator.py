@@ -61,6 +61,23 @@ def _build_time_grid(start: datetime, end: datetime, step_seconds: float) -> lis
     return [start + timedelta(seconds=i * step_seconds) for i in range(n_steps)]
 
 
+def propagate_all_at(
+    satellites: list[Satrec], dt: datetime
+) -> tuple[np.ndarray, np.ndarray]:
+    """Positions for MANY objects at a single instant, in one vectorized
+    SatrecArray call — orders of magnitude faster than looping propagate_at
+    when the catalog has tens of thousands of objects.
+
+    Returns (positions_km (n, 3), error_codes (n,)).
+    """
+    jd, fr = _datetime_to_jd_fr(dt)
+    satrec_array = SatrecArray(satellites)
+    error_codes, positions, _velocities = satrec_array.sgp4(
+        np.array([jd]), np.array([fr])
+    )
+    return positions[:, 0, :], error_codes[:, 0]
+
+
 def propagate_window(
     satrec: Satrec, start: datetime, end: datetime, step_seconds: float
 ) -> PropagationWindow:
