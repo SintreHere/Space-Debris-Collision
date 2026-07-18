@@ -1,14 +1,19 @@
 # Secrets — never commit (Space-Track credentials live here)
 .env
 .env.*
+!.env.example
 
 # Python
 __pycache__/
 *.pyc
 .pytest_cache/
+.ruff_cache/
 *.egg-info/
 .venv/
 venv/
+
+# Local editor/assistant settings
+.claude/settings.local.json
 
 # Local data cache (regenerate with scripts/fetch_tles.py)
 data/
