@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Radar, Satellite, AlertTriangle, Crosshair, Orbit, Rocket,
+  Radar, Satellite, AlertTriangle, Crosshair, Orbit,
   Wifi, WifiOff, Loader2, Volume2, VolumeX, Clock, MapPin,
-  ZoomIn, ZoomOut, Activity,
+  ZoomIn, ZoomOut, Activity, Globe, GitMerge,
 } from "lucide-react";
+import OrbitViewer3D, { TRACK_COLORS } from "./OrbitViewer3D.jsx";
 
 /* ==================================================================
    SAKLE — Space Analytics & Kinetic Location Engine
@@ -58,6 +59,8 @@ export default function SakleDashboard() {
 
   const [proximity, setProximity] = useState(null);
   const [catalog, setCatalog] = useState(null);
+  const [conjunctions, setConjunctions] = useState(null);
+  const [hiddenTracks, setHiddenTracks] = useState(() => new Set());
   const [linkError, setLinkError] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
@@ -143,6 +146,11 @@ export default function SakleDashboard() {
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((data) => { setCatalog(data); setLinkError(null); })
       .catch((err) => setLinkError((prev) => prev || err.message || "Link failure"));
+    // Cached server-side report — cheap GET, no propagation triggered.
+    fetch(`${API_BASE}/api/conjunctions`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(setConjunctions)
+      .catch(() => {});
   }, []);
 
   // Debounced re-fetch on position change
@@ -268,17 +276,12 @@ export default function SakleDashboard() {
 
       {/* ================= HEADER ================= */}
       <header style={styles.header} className="sk-fade">
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={styles.emblem}>
-            <Rocket size={22} color="#FFF" strokeWidth={1.75} />
+        <div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+            <div style={styles.h1}>SAKLE</div>
+            <div style={styles.h1Hi}>साकले</div>
           </div>
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <div style={styles.h1}>SAKLE</div>
-              <div style={styles.h1Hi}>साकले</div>
-            </div>
-            <div style={styles.subtitle}>SPACE ANALYTICS &amp; KINETIC LOCATION ENGINE</div>
-          </div>
+          <div style={styles.subtitle}>SPACE ANALYTICS &amp; KINETIC LOCATION ENGINE</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -486,6 +489,125 @@ export default function SakleDashboard() {
                 );
               })}
             </div>
+          </section>
+
+          {/* ================= 3D ORBITAL TRACKS ================= */}
+          {(() => {
+            // Explicitly sorted nearest-first so the chip row reads as an
+            // ascending-distance ranking (defensive re-sort — don't rely on
+            // API response ordering).
+            const scopeTracks = [...ranked.slice(0, 14)]
+              .sort((a, b) => a.distanceKm - b.distanceKm)
+              .map((o, i) => ({
+                id: o.id,
+                name: o.name,
+                distanceKm: o.distanceKm,
+                color: TRACK_COLORS[i % TRACK_COLORS.length],
+              }));
+            const visibleIds = scopeTracks.filter((t) => !hiddenTracks.has(t.id)).map((t) => t.id);
+            const toggleTrack = (id) => setHiddenTracks((prev) => {
+              const next = new Set(prev);
+              next.has(id) ? next.delete(id) : next.add(id);
+              return next;
+            });
+            return (
+              <section style={{ ...styles.panel, marginTop: 14 }} className="sk-panel sk-fade">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={styles.panelTitle}><Globe size={13} color={T.saffron} /> ORBITAL TRACKS — 3D</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button
+                      className="sk-iconbtn"
+                      onClick={() => setHiddenTracks(new Set())}
+                      style={{ ...styles.trackChip, color: hiddenTracks.size ? T.ink2 : T.muted }}
+                      title="Show all tracks"
+                    >
+                      ALL
+                    </button>
+                    <button
+                      className="sk-iconbtn"
+                      onClick={() => setHiddenTracks(new Set(scopeTracks.map((t) => t.id)))}
+                      style={{ ...styles.trackChip, color: hiddenTracks.size >= scopeTracks.length ? T.muted : T.ink2 }}
+                      title="Hide all tracks"
+                    >
+                      NONE
+                    </button>
+                    <div style={{ ...styles.mono, fontSize: 10, color: T.muted }}>NEAREST {scopeTracks.length} · 3H WINDOW</div>
+                  </div>
+                </div>
+
+                {/* per-object visibility chips */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  {scopeTracks.map((t) => {
+                    const hidden = hiddenTracks.has(t.id);
+                    const hex = `#${t.color.toString(16).padStart(6, "0")}`;
+                    return (
+                      <button
+                        key={t.id}
+                        className="sk-iconbtn"
+                        onClick={() => toggleTrack(t.id)}
+                        style={{
+                          ...styles.trackChip,
+                          opacity: hidden ? 0.35 : 1,
+                          borderColor: hidden ? T.border : `${hex}66`,
+                        }}
+                        title={`${hidden ? "Show" : "Hide"} ${t.name} — ${t.distanceKm.toFixed(1)} km`}
+                      >
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: hex, boxShadow: hidden ? "none" : `0 0 5px ${hex}` }} />
+                        <span style={{ ...styles.mono, fontSize: 9.5 }}>{t.id}</span>
+                        <span style={{ ...styles.mono, fontSize: 8.5, color: T.muted }}>{Math.round(t.distanceKm)}km</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ height: 430, marginTop: 10, borderRadius: 8, overflow: "hidden", background: "radial-gradient(600px 300px at 50% 0%, #0A1830 0%, #050A13 70%)", border: `1px solid ${T.grid}` }}>
+                  <OrbitViewer3D
+                    tracks={scopeTracks}
+                    visibleIds={visibleIds}
+                    userPosition={{ lat, lon, alt }}
+                  />
+                </div>
+              </section>
+            );
+          })()}
+
+          {/* ================= CONJUNCTION WATCH ================= */}
+          <section style={{ ...styles.panel, marginTop: 14 }} className="sk-panel sk-fade">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={styles.panelTitle}><GitMerge size={13} color={T.saffron} /> CONJUNCTION WATCH — PAIRWISE SCREEN</div>
+              {conjunctions?.status === "ok" && (
+                <div style={{ ...styles.mono, fontSize: 10, color: T.muted }}>
+                  {conjunctions.params.max_objects} OBJ · {conjunctions.params.window_hours}H · &lt;{conjunctions.params.threshold_km} km
+                </div>
+              )}
+            </div>
+
+            {conjunctions?.status === "ok" && conjunctions.count > 0 ? (
+              <div style={{ marginTop: 6 }}>
+                <div style={styles.tableHeader}>
+                  <span style={{ flex: 2.4 }}>PAIR</span>
+                  <span style={{ flex: 1.4 }}>TCA (UTC)</span>
+                  <span style={{ flex: 1, textAlign: "right" }}>MISS (km)</span>
+                  <span style={{ flex: 1, textAlign: "right" }}>REL VEL (km/s)</span>
+                  <span style={{ flex: 1, textAlign: "right" }}>Pc</span>
+                </div>
+                {conjunctions.events.slice(0, 8).map((e) => (
+                  <div key={`${e.norad_id_a}-${e.norad_id_b}`} className="sk-row" style={styles.tableRow}>
+                    <span style={{ flex: 2.4, color: T.ink }}>{e.name_a} <span style={{ color: T.muted }}>×</span> {e.name_b}</span>
+                    <span style={{ flex: 1.4, ...styles.mono, fontSize: 11 }}>{e.tca.slice(11, 19)}</span>
+                    <span style={{ flex: 1, textAlign: "right", ...styles.mono, color: e.miss_distance_km < 5 ? T.critical : T.warning }}>{e.miss_distance_km.toFixed(2)}</span>
+                    <span style={{ flex: 1, textAlign: "right", ...styles.mono }}>{e.relative_velocity_km_s.toFixed(2)}</span>
+                    <span style={{ flex: 1, textAlign: "right", ...styles.mono, fontSize: 11 }}>{e.probability_of_collision.toExponential(1)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: "22px 0", textAlign: "center", fontSize: 11.5, color: T.muted, letterSpacing: "0.05em" }}>
+                {conjunctions?.status === "ok"
+                  ? "NO CLOSE-APPROACH PAIRS INSIDE SCREENING VOLUME"
+                  : "SCREENING IN PROGRESS — RESULTS AFTER NEXT REFRESH CYCLE"}
+              </div>
+            )}
           </section>
         </>
       ) : (
@@ -772,14 +894,8 @@ const styles = {
     flexWrap: "wrap",
     paddingBottom: 14,
   },
-  emblem: {
-    width: 44, height: 44, borderRadius: "50%",
-    background: `linear-gradient(135deg, ${T.saffronDeep}, #C2410C)`,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    boxShadow: "0 0 22px rgba(255,103,31,0.4)",
-  },
   h1: { fontSize: 26, fontWeight: 800, letterSpacing: "0.18em", color: T.ink, lineHeight: 1 },
-  h1Hi: { fontSize: 22, fontWeight: 700, color: T.saffron, lineHeight: 1 },
+  h1Hi: { fontSize: 26, fontWeight: 800, color: T.saffron, lineHeight: 1 },
   subtitle: { fontSize: 10, fontWeight: 600, letterSpacing: "0.14em", color: T.saffron, marginTop: 5 },
   tricolor: {
     height: 3, borderRadius: 2, marginBottom: 12,
@@ -828,6 +944,16 @@ const styles = {
   tile: {
     background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10,
     padding: "12px 14px",
+  },
+  trackChip: {
+    display: "flex", alignItems: "center", gap: 5,
+    background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 20,
+    padding: "4px 10px", cursor: "pointer", color: T.ink2,
+  },
+  zoomBtn: {
+    background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 5,
+    width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center",
+    color: T.ink2, cursor: "pointer", flexShrink: 0,
   },
   scopeLegend: { display: "flex", justifyContent: "center", alignItems: "center", gap: 14, marginTop: 2, flexWrap: "wrap" },
   tableHeader: {
