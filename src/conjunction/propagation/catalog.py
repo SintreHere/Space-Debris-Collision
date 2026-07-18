@@ -24,6 +24,8 @@ class CatalogObject:
     name: str
     line1: str
     line2: str
+    perigee_altitude_km: float
+    apogee_altitude_km: float
 
 
 def load_catalog(db_path: Path | None = None) -> list[CatalogObject]:
@@ -32,7 +34,12 @@ def load_catalog(db_path: Path | None = None) -> list[CatalogObject]:
     rows = storage.get_latest_tles(db_path)
     return [
         CatalogObject(
-            norad_id=row["norad_id"], name=row["name"], line1=row["line1"], line2=row["line2"]
+            norad_id=row["norad_id"],
+            name=row["name"],
+            line1=row["line1"],
+            line2=row["line2"],
+            perigee_altitude_km=row["perigee_altitude_km"],
+            apogee_altitude_km=row["apogee_altitude_km"],
         )
         for row in rows
     ]

@@ -219,7 +219,7 @@ tests/
 - [x] **Phase 1 — Data ingestion**: fetch + cache TLEs for a defined altitude band
 - [x] **Phase 2 — Propagation**: SGP4 position vectors over a 72-hour window (vectorized, multi-object)
 - [x] **Phase 3 — Conjunction detection (single-point) + API + dashboard**: proximity search, simplified risk scoring, FastAPI backend, live React dashboard
-- [ ] **Phase 3b — True pairwise conjunction detection**: minimum separation between *every pair* of catalog objects (not just user-vs-catalog), over the full propagation window
-- [ ] **Phase 4 — Full Pc calculation**: combined-covariance probability of collision (current risk score is a distance-only proxy)
-- [ ] **Phase 5 — 3D trajectory visualization**: true orbit paths, not just snapshot positions
+- [x] **Phase 3b — True pairwise conjunction detection**: minimum separation between *every pair* of catalog objects (not just user-vs-catalog), over the full propagation window — `risk/pairwise.py`, surfaced at `GET /api/conjunctions`
+- [x] **Phase 4 — Pc calculation**: closed-form isotropic-covariance probability of collision — `risk/pc.py` (documented simplification: generic combined covariance, no per-object covariance in TLE data)
+- [x] **Phase 5 — 3D trajectory visualization**: true orbit paths via three.js — `GET /api/trajectories` + `OrbitViewer3D.jsx`
 - [ ] **SaaS layer**: Postgres/TimescaleDB, auth, multi-user deployment, Next.js migration
