@@ -78,6 +78,26 @@ def geodetic_to_teme(lat_deg: float, lon_deg: float, altitude_km: float, dt: dat
     return x_teme, y_teme, z_teme
 
 
+def teme_to_geodetic_batch(positions_km, dt: datetime):
+    """Vectorized teme_to_geodetic for an (n, 3) numpy array of positions at
+    a single shared instant. Returns (lat_deg, lon_deg, alt_km) arrays.
+    Same math as the scalar version — one GMST rotation, spherical Earth."""
+    import numpy as np
+
+    theta = math.radians(gmst_deg(dt))
+    cos_t, sin_t = math.cos(theta), math.sin(theta)
+    x, y, z = positions_km[:, 0], positions_km[:, 1], positions_km[:, 2]
+
+    x_ecef = cos_t * x + sin_t * y
+    y_ecef = -sin_t * x + cos_t * y
+
+    r = np.sqrt(x_ecef**2 + y_ecef**2 + z**2)
+    lat = np.degrees(np.arcsin(np.clip(z / r, -1.0, 1.0)))
+    lon = np.degrees(np.arctan2(y_ecef, x_ecef))
+    alt = r - EARTH_RADIUS_KM
+    return lat, lon, alt
+
+
 def bearing_deg(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Initial great-circle bearing from point 1 to point 2, degrees [0, 360)."""
     phi1, phi2 = math.radians(lat1), math.radians(lat2)

@@ -30,7 +30,9 @@ from conjunction.propagation.catalog import CatalogObject
 from conjunction.propagation.models import MultiObjectPropagationWindow
 from conjunction.risk.proximity import YELLOW_KM
 
-DEFAULT_CHUNK_SIZE = 5000
+# 2000 pairs/chunk keeps the transient (k, T, 3) diff arrays ~35MB at a
+# 721-step window — sized for small containers (Railway), not workstations.
+DEFAULT_CHUNK_SIZE = 2000
 
 _START, _END = 0, 1  # event kinds; START sorts before END at equal altitude
 
