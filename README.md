@@ -1,225 +1,152 @@
-# Conjunction & Collision Risk Estimator — Algorithmic Core
+# SAKLE — Space Analytics & Kinetic Location Engine
 
-Predicts and ranks upcoming close-approach ("conjunction") events between
-tracked LEO objects, with a risk score, so an operator could act on it —
-the same operational function as ISRO's IS4OM or Digantara's tracking service.
+A production-grade conjunction screening and orbital situational-awareness platform for low Earth orbit. SAKLE ingests the live public satellite catalog, propagates every object with SGP4, screens all object pairs for close approaches, estimates collision probability, and renders it all in a real-time mission-control dashboard — the same operational function class as ISRO's IS4OM or commercial SSA services.
 
-**Current phase:** Phase 3 complete — real ingestion, propagation, risk
-scoring, a FastAPI backend, and a live React dashboard are all wired
-together. The full SaaS layer (auth, persistence beyond SQLite, multi-user
-deployment) is still deliberately deferred — this is a real working tool,
-just a single-user/local one so far.
+## Features
 
-## Setup
+- **Live catalog ingestion** — current TLEs from Space-Track (primary) with automatic no-auth CelesTrak fallback, filtered by altitude band, cached in SQLite, refreshed on a background schedule inside the API process
+- **Vectorized SGP4 propagation** — the entire catalog (20k+ objects) propagated over multi-hour windows in a single `SatrecArray` call
+- **Proximity monitor** — rank every tracked object by distance from a simulated asset position, with distance-banded risk levels (RED < 5 km, YELLOW < 25 km)
+- **True pairwise conjunction screening** — minimum separation between every pair of catalog objects over the propagation window, reported with time of closest approach and relative velocity
+- **Collision probability (Pc)** — closed-form isotropic-covariance estimate for each screened event
+- **3D orbital tracker** — three.js globe with real terrain textures, a day/night terminator computed from the actual sun position, NASA Black Marble city lights on the night side, fading orbit trails, and per-object visibility toggles
+- **Mission-control UI** — ISRO-themed dashboard with a sweeping radar scope, live IST/UTC clock, analytics tiles, and auto-refreshing telemetry
 
-1. **Get Space-Track credentials** (free): register at https://www.space-track.org
-2. **Clone this repo and set up the environment:**
+## Architecture
 
-   ```bash
-   git clone <your-repo-url>
-   cd conjunction-risk-estimator
-   python3 -m venv .venv
-   source .venv/bin/activate   # Windows: .venv\Scripts\activate
-   pip install -e ".[dev]"
-   ```
-
-3. **Configure credentials:**
-
-   ```bash
-   cp .env.example .env
-   # edit .env and fill in SPACETRACK_USERNAME / SPACETRACK_PASSWORD
-   ```
-
-4. **Run the tests** (no network required — pure orbital-mechanics math):
-
-   ```bash
-   pytest tests/ -v
-   ```
-
-## Usage — Phase 3: Run the API + dashboard together
-
-This is the full loop: real cached TLEs → SGP4 propagation → risk scoring →
-live dashboard.
-
-**1. Start the backend** (from the project root):
-
-```bash
-pip install -e ".[dev]"          # picks up fastapi/uvicorn
-uvicorn conjunction.api.main:app --reload --port 8000
+```
+Space-Track ──┐
+              ├─► ingestion ─► SQLite TLE cache ─► SGP4 propagation ─► risk engine ─► FastAPI ─► React dashboard
+CelesTrak  ───┘   (httpx)      (data/*.db)         (sgp4, numpy)       proximity          │        radar scope
+                                    ▲                                  pairwise + Pc      │        analytics
+                                    └── background refresh (6h) ───────────────────────────┘        three.js globe
 ```
 
-Visit `http://localhost:8000/docs` for interactive API docs (auto-generated
-by FastAPI). Two endpoints matter here:
-- `GET /api/catalog` — every cached object, propagated to right now, as geodetic lat/lon/altitude
-- `POST /api/proximity` — given `{lat, lon, altitude_km}`, ranks every object by distance and risk-scores them (this is `conjunction.risk.proximity`, the same module the tests exercise)
+Backend: **Python 3.11+ · FastAPI · sgp4 · NumPy · SciPy · SQLite**
+Frontend: **React 18 · Vite · three.js · lucide-react**
 
-**2. Start the frontend** (in a second terminal):
+## Quick start
+
+Prerequisites: Python 3.11+, Node 20+, and (optionally) a free [Space-Track](https://www.space-track.org) account.
 
 ```bash
+git clone https://github.com/SintreHere/Space-Debris-Collision.git
+cd Space-Debris-Collision
+
+# Backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env          # add Space-Track credentials (optional)
+python scripts/fetch_tles.py --min-alt 350 --max-alt 1250   # seed the cache
+uvicorn conjunction.api.main:app --reload --port 8000
+
+# Frontend (second terminal)
 cd apps/web
 npm install
-npm run dev
+npm run dev                   # open the printed URL (default http://localhost:5173)
 ```
 
-Open the URL Vite prints (typically `http://localhost:5173`). The dashboard
-loads in **Demo Snapshot** mode by default (74 simulated objects, no backend
-needed) — click **LIVE API** to switch it to your running backend. If the
-API base shown doesn't match where uvicorn is listening, edit the input
-next to the toggle.
+Interactive API docs are auto-generated at `http://localhost:8000/docs`.
 
-**3. Make sure there's actually data to look at:**
+The manual seed step is only needed on a fresh local setup — in production the API refreshes the TLE cache itself on a background schedule.
+
+## Configuration
+
+All configuration is via environment variables (loaded from `.env` locally — see [.env.example](.env.example)):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SPACETRACK_USERNAME` / `SPACETRACK_PASSWORD` | — | Space-Track credentials; without them ingestion falls back to CelesTrak |
+| `TLE_DB_PATH` | `data/tle_cache.db` | SQLite cache location (mount a volume here in production) |
+| `CORS_ORIGINS` | `*` | Comma-separated allowed origins — set to your frontend domain in production |
+| `TLE_REFRESH_INTERVAL_SECONDS` | `21600` | Background catalog refresh cadence |
+| `TLE_REFRESH_MIN_ALT_KM` / `TLE_REFRESH_MAX_ALT_KM` | `350` / `1250` | Altitude band the refresh ingests |
+| `VITE_API_BASE` (frontend, build-time) | `http://localhost:8000` | API URL baked into the frontend bundle |
+
+## API
+
+| Endpoint | Description |
+|---|---|
+| `GET /health` | Liveness probe |
+| `GET /api/catalog` | Every cached object propagated to now, as geodetic lat/lon/altitude |
+| `POST /api/proximity` | Rank all objects by distance from `{lat, lon, altitude_km}`, with risk scores |
+| `GET /api/conjunctions` | Pairwise close-approach events over the screening window, with TCA, miss distance, relative velocity, and Pc |
+| `GET /api/trajectories` | Time-series geodetic tracks for selected NORAD IDs (drives the 3D viewer) |
+
+## Testing
 
 ```bash
-python scripts/fetch_tles.py --min-alt 350 --max-alt 1250
+pytest tests/ -q      # 23 tests, no network required — pure orbital mechanics
+ruff check src/ scripts/ tests/
 ```
 
-The dashboard reads whatever is in `data/tle_cache.db` — an empty cache
-means `/api/catalog` and `/api/proximity` will 404 with a message telling
-you to run this.
+The test suite covers Kepler-derived altitude math, SGP4 propagation against a real ISS TLE, TEME↔geodetic round-trips, proximity ranking/thresholds, pairwise screening, and the Pc formula.
 
-### What moved server-side in Phase 3
+## Deployment
 
-The dashboard's status card, radar scope, altitude chart, and ranked table
-all originally computed distance/bearing/risk in the browser against a
-static snapshot. In Live mode, `conjunction.risk.proximity` (backed by
-`conjunction.risk.geodesy` for the TEME↔geodetic conversions) now does that
-computation server-side, against your real propagated catalog. The
-thresholds and scoring formula are unchanged — verified identical in
-`tests/test_proximity.py` — so switching between Demo and Live shouldn't
-change how a given position is classified, only whether the objects behind
-it are simulated or real.
+Both services ship with Dockerfiles and deploy cleanly to Railway (or any container host):
 
-## Usage — Phase 2: Propagate the catalog forward in time
+- **Backend** — root [Dockerfile](Dockerfile); mount a persistent volume and set `TLE_DB_PATH` onto it, set `CORS_ORIGINS` to the frontend domain. The in-process scheduler keeps TLEs fresh, so no external cron is needed.
+- **Frontend** — [apps/web/Dockerfile](apps/web/Dockerfile); set `VITE_API_BASE` to the backend URL **before build** (it is baked into the bundle at build time).
 
-```bash
-# Batch mode: propagate everything in the cache over the default 72h window
-python scripts/propagate_catalog.py
-
-# Custom window / step size
-python scripts/propagate_catalog.py --hours 72 --step-seconds 300
-
-# Single object, verbose output (position + altitude at start/mid/end)
-python scripts/propagate_catalog.py --norad-id 25544
-```
-
-This uses SGP4's vectorized multi-object API (`SatrecArray.sgp4`) to
-propagate every cached object over the same time grid in one call, returning
-a `(n_objects, n_times, 3)` position array — the exact shape Phase 3's
-pairwise minimum-distance search will consume.
-
-**Frame note:** positions/velocities are in TEME (SGP4's native output
-frame), not converted to J2000/GCRS. This is intentional, not an oversight —
-every object is propagated into the same TEME frame at the same timestamps,
-so *relative* distances between objects (all conjunction detection needs)
-are correct without a frame conversion. The conversion gets added in Phase 5
-for visualization, via astropy.
-
-## Usage — Phase 1: Fetch TLEs for an altitude band
-
-```bash
-# Primary path: Space-Track (needs credentials in .env)
-python scripts/fetch_tles.py --min-alt 700 --max-alt 900
-
-# No credentials yet? Use the no-auth fallback:
-python scripts/fetch_tles.py --min-alt 700 --max-alt 900 --use-celestrak
-
-# Cap the result set while iterating:
-python scripts/fetch_tles.py --min-alt 700 --max-alt 900 --limit 50
-```
-
-This fetches current TLEs, computes each object's perigee/apogee altitude
-from its orbital elements (Kepler's third law — see
-`src/conjunction/ingestion/altitude.py`), keeps only objects whose orbit
-overlaps the requested band, and caches everything to a local SQLite
-database at `data/tle_cache.db`.
-
-## Usage — Phase 2: Propagate cached objects forward in time
-
-```bash
-python scripts/propagate_demo.py --hours 72 --step-seconds 300 --limit 10
-```
-
-Loads the most recent TLE per object from the Phase 1 cache, propagates each
-one forward using SGP4, and prints altitude sanity stats. The core functions
-you'll build on in Phase 3:
-
-- `propagate_at(satrec, dt)` — position/velocity for one object at one instant
-- `propagate_window(satrec, start, end, step_seconds)` — one object over a time grid
-- `propagate_many(satellites, start, end, step_seconds)` — **all** objects over
-  the same time grid, vectorized, returning a `(n_objects, n_times, 3)` array —
-  this is the shape Phase 3's pairwise minimum-distance search will consume directly
-
-All outputs are in the TEME frame (SGP4's native frame). No conversion to
-another frame (e.g. J2000/GCRF) is needed since every object is propagated
-in the same frame — relative distances between objects are valid as-is.
-
-## Design notes / simplifying assumptions
-
-
-- **Altitude filtering is done client-side**, not via a Space-Track server-side
-  predicate. Space-Track's exact predicate names have changed over the years
-  (`tle_latest` → `gp`), but mean motion and eccentricity are always present
-  on every TLE and are physically sufficient to compute altitude — so
-  filtering locally is more robust than depending on a specific query syntax.
-- **Space-Track is primary, CelesTrak is fallback.** If Space-Track auth
-  fails or credentials aren't configured, ingestion automatically falls back
-  to CelesTrak's no-auth feed.
-- **SQLite for now, not Postgres.** This is intentional for the core-first
-  phase — we don't want infrastructure (Docker, Postgres, Celery) in the way
-  while validating the algorithm. The storage interface
-  (`init_db` / `upsert_tles` / `get_latest_tles`) is written so it can be
-  swapped for a Postgres/TimescaleDB-backed implementation later without
-  changing any caller code.
-- **Only current-orbit objects are considered** (`decay_date` filtered out,
-  eccentricity capped at 0.25 to exclude highly elliptical/GEO-transfer
-  orbits that aren't relevant to LEO congestion).
+For a single-VPS deployment (nginx + systemd + certbot), serve `apps/web/dist` statically and reverse-proxy `/api/` to uvicorn on localhost.
 
 ## Project structure
 
 ```
 src/conjunction/
-├── config.py                    # environment/settings
-└── ingestion/
-    ├── models.py                 # TLERecord (pydantic)
-    ├── parsing.py                 # raw TLE line-2 field parsing
-    ├── altitude.py                # orbital mechanics: mean motion -> altitude
-    ├── spacetrack_client.py       # primary data source
-    ├── celestrak_client.py        # fallback data source
-    ├── storage.py                 # SQLite cache
-    └── service.py                 # orchestration + fallback logic
-└── propagation/
-    ├── models.py                  # PropagatedState / PropagationWindow / MultiObjectPropagationWindow
-    ├── sgp4_propagator.py         # SGP4 wrapper: single, windowed, and multi-object propagation
-    └── catalog.py                 # bridges cached TLEs -> batch propagation
-└── risk/
-    ├── geodesy.py                  # TEME<->geodetic conversion, GMST, bearing
-    └── proximity.py                 # ranking + simplified risk scoring (RED/YELLOW/GREEN)
+├── config.py                  # environment/settings
+├── ingestion/                 # TLE fetch + cache
+│   ├── models.py              #   TLERecord (pydantic)
+│   ├── parsing.py             #   raw TLE field parsing
+│   ├── altitude.py            #   mean motion → perigee/apogee altitude
+│   ├── spacetrack_client.py   #   primary source
+│   ├── celestrak_client.py    #   no-auth fallback
+│   ├── storage.py             #   SQLite cache
+│   └── service.py             #   orchestration + fallback logic
+├── propagation/
+│   ├── models.py              #   propagation window dataclasses
+│   ├── sgp4_propagator.py     #   single / windowed / multi-object SGP4
+│   └── catalog.py             #   cached TLEs → batch propagation
+├── risk/
+│   ├── geodesy.py             #   TEME↔geodetic, GMST, bearing
+│   ├── proximity.py           #   single-point ranking + risk levels
+│   ├── pairwise.py            #   all-pairs conjunction screening
+│   └── pc.py                  #   probability-of-collision estimate
 └── api/
-    └── main.py                     # FastAPI: /api/catalog, /api/proximity
-apps/web/                           # Vite + React dashboard
-├── package.json
-├── index.html
-├── src/
-│   ├── main.jsx
-│   └── components/
-│       └── OrbitalProximityMonitor.jsx   # Demo/Live toggle, radar scope, risk table
-└── data/debris_snapshot.json        # physically-grounded demo fallback data
-scripts/
-├── fetch_tles.py                  # Phase 1 CLI entry point
-└── propagate_catalog.py           # Phase 2 CLI entry point
-tests/
-├── test_altitude.py               # orbital mechanics sanity checks
-├── test_propagation.py            # SGP4 propagation sanity checks (real ISS TLE)
-├── test_geodesy.py                # TEME<->geodetic round-trip, bearing correctness
-└── test_proximity.py              # risk thresholds, ranking correctness
+    └── main.py                # FastAPI app + background TLE refresh
+
+apps/web/                      # SAKLE dashboard (Vite + React)
+├── public/
+│   ├── audio/                 #   background ambience
+│   └── textures/              #   bundled Earth day/night textures (no CDN)
+└── src/
+    ├── components/
+    │   ├── SakleDashboard.jsx #   radar scope, analytics, conjunction watch
+    │   └── OrbitViewer3D.jsx  #   three.js orbital tracker
+    └── three/
+        ├── sceneSetup.js      #   textured Earth, sun terminator, starfield
+        └── orbitPath.js       #   fading trails, markers, coordinate mapping
+
+scripts/                       # CLI utilities (fetch_tles, propagate_catalog)
+tests/                         # pytest suite (23 tests)
 ```
+
+## Engineering notes
+
+- **TEME frame throughout.** SGP4 natively outputs TEME; every object is propagated in the same frame at the same timestamps, so relative distances — all that conjunction screening needs — are valid without a J2000/GCRF conversion.
+- **Altitude filtering is computed, not queried.** Perigee/apogee are derived locally from mean motion and eccentricity (Kepler's third law) rather than relying on Space-Track predicate syntax, which has changed over the years.
+- **Pc is a documented simplification.** Public TLEs carry no per-object covariance, so `risk/pc.py` uses a closed-form isotropic combined-covariance model — the standard screening-level approach when covariance data is unavailable.
+- **SQLite by design.** The storage interface (`init_db` / `upsert_tles` / `get_latest_tles`) is deliberately narrow so a Postgres/TimescaleDB implementation can replace it without touching callers.
+- **Screening scope.** Decayed objects are filtered out and eccentricity is capped at 0.25 to exclude GEO-transfer orbits irrelevant to LEO congestion.
 
 ## Roadmap
 
-- [x] **Phase 1 — Data ingestion**: fetch + cache TLEs for a defined altitude band
-- [x] **Phase 2 — Propagation**: SGP4 position vectors over a 72-hour window (vectorized, multi-object)
-- [x] **Phase 3 — Conjunction detection (single-point) + API + dashboard**: proximity search, simplified risk scoring, FastAPI backend, live React dashboard
-- [x] **Phase 3b — True pairwise conjunction detection**: minimum separation between *every pair* of catalog objects (not just user-vs-catalog), over the full propagation window — `risk/pairwise.py`, surfaced at `GET /api/conjunctions`
-- [x] **Phase 4 — Pc calculation**: closed-form isotropic-covariance probability of collision — `risk/pc.py` (documented simplification: generic combined covariance, no per-object covariance in TLE data)
-- [x] **Phase 5 — 3D trajectory visualization**: true orbit paths via three.js — `GET /api/trajectories` + `OrbitViewer3D.jsx`
-- [ ] **SaaS layer**: Postgres/TimescaleDB, auth, multi-user deployment, Next.js migration
+- [x] TLE ingestion with altitude-band filtering and fallback source
+- [x] Vectorized multi-object SGP4 propagation
+- [x] Proximity ranking + risk scoring, API, live dashboard
+- [x] True pairwise conjunction screening (`/api/conjunctions`)
+- [x] Closed-form Pc estimation
+- [x] three.js 3D trajectory visualization
+- [ ] Per-object covariance ingestion (CDM-style) for full 2D Pc
+- [ ] Postgres/TimescaleDB, auth, multi-user SaaS layer
