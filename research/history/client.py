@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 
@@ -44,7 +45,13 @@ class HistoryDownloadError(RuntimeError):
 
 def spacetrack_transport() -> Transport:
     """Real transport backed by the `spacetrack` library (lazy import so the
-    module stays importable without credentials/network, e.g. in tests)."""
+    module stays importable without credentials/network, e.g. in tests).
+
+    50k-row pages can take minutes when Space-Track is under load, so the
+    default 30s httpx timeout is replaced with a 5-minute read timeout, and
+    transient failures (timeouts, 5xx) get two retries with a 60s pause —
+    the snapshot ledger makes anything beyond that safely re-runnable."""
+    import httpx
     from spacetrack import SpaceTrackClient
 
     from conjunction.config import settings
@@ -57,10 +64,25 @@ def spacetrack_transport() -> Transport:
     st = SpaceTrackClient(
         identity=settings.spacetrack_username,
         password=settings.spacetrack_password,
+        httpx_client=httpx.Client(timeout=httpx.Timeout(300.0, connect=30.0)),
     )
 
     def _request(request_class: str, predicates: dict) -> str:
-        return st.generic_request(request_class, **predicates)
+        attempts = 3
+        for attempt in range(1, attempts + 1):
+            try:
+                return st.generic_request(request_class, **predicates)
+            except (httpx.TimeoutException, httpx.TransportError, httpx.HTTPStatusError) as exc:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                retryable = status is None or status >= 500
+                if not retryable or attempt == attempts:
+                    raise
+                logger.warning(
+                    "Transient Space-Track error (%s), retry %d/%d in 60s",
+                    exc, attempt, attempts - 1,
+                )
+                time.sleep(60)
+        raise AssertionError("unreachable")
 
     return _request
 
