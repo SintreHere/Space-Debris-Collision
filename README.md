@@ -76,11 +76,11 @@ All configuration is via environment variables (loaded from `.env` locally — s
 ## Testing
 
 ```bash
-pytest tests/ -q      # 23 tests, no network required — pure orbital mechanics
-ruff check src/ scripts/ tests/
+PYTHONPATH=src:. pytest tests/ -q      # 42 tests, no network required
+ruff check src/ scripts/ tests/ research/
 ```
 
-The test suite covers Kepler-derived altitude math, SGP4 propagation against a real ISS TLE, TEME↔geodetic round-trips, proximity ranking/thresholds, pairwise screening, and the Pc formula.
+The test suite covers Kepler-derived altitude math, SGP4 propagation against a real ISS TLE, TEME↔geodetic round-trips, proximity ranking/thresholds, pairwise screening, the Pc formula, the Indian LEO asset registry (epoch-awareness, exclusion rules), and the historical-data acquisition layer (offline, via fake transports).
 
 ## Deployment
 
@@ -128,9 +128,30 @@ apps/web/                      # SAKLE dashboard (Vite + React)
         ├── sceneSetup.js      #   textured Earth, sun terminator, starfield
         └── orbitPath.js       #   fading trails, markers, coordinate mapping
 
+research/                      # India LEO conjunction-exposure study
+├── assets/                    #   Phase 1 — curated Indian LEO asset registry
+│   ├── indian_leo_assets.csv  #     27-object catalog (epoch-aware, provenance-documented)
+│   ├── registry.py            #     primaries_at() selection API + ISSAR sanity check
+│   └── verify_assets.py       #     live CelesTrak cross-check
+└── history/                   #   Phase 2 — historical gp_history acquisition
+    ├── snapshots.py           #     quarterly epoch-selection policy
+    ├── client.py              #     rate-limited, paginated Space-Track puller
+    ├── store.py               #     epoch-indexed SQLite + resumability ledger
+    └── downloader.py          #     CLI orchestrator (--dry-run supported)
+
 scripts/                       # CLI utilities (fetch_tles, propagate_catalog)
-tests/                         # pytest suite (23 tests)
+tests/                         # pytest suite (42 tests)
 ```
+
+## Research: India LEO conjunction-exposure study
+
+Alongside the operational dashboard, `research/` hosts a phased study of
+Indian LEO assets' conjunction exposure (2019→2026). Each phase ships with a
+runbook and a completion report at the repo root:
+
+- **Phase 1 — asset registry** ([runbook](PHASE1_RUNBOOK.md) · [report](PHASE1_REPORT.md)): 27 curated ISRO LEO objects with epoch-aware primary-set selection, verified against the live CelesTrak catalog.
+- **Phase 2 — historical data** ([runbook](PHASE2_RUNBOOK.md) · [report](PHASE2_REPORT.md)): quarterly `gp_history` snapshots 2019Q1–2026Q3 plus full elset histories for all primaries, rate-limit governed and resumable.
+- **Phase 3 — screening cascade** (next): staged conjunction filter over the historical snapshots.
 
 ## Engineering notes
 
