@@ -1,0 +1,96 @@
+norad_id,name,check,result
+29710,CARTOSAT-2,existence,"OK (no GP, matches decayed status)"
+32783,CARTOSAT-2A,name,OK (CARTOSAT-2A)
+32783,CARTOSAT-2A,altitude,OK: current ~632 km vs nominal 635 km (delta -3)
+32783,CARTOSAT-2A,inclination,OK: 97.76 deg
+32783,CARTOSAT-2A,tle_age,OK: 0.2 days
+36795,CARTOSAT-2B,name,OK (CARTOSAT-2B)
+36795,CARTOSAT-2B,altitude,OK: current ~634 km vs nominal 635 km (delta -1)
+36795,CARTOSAT-2B,inclination,OK: 97.99 deg
+36795,CARTOSAT-2B,tle_age,OK: 0.3 days
+41599,CARTOSAT-2C,name,OK (CARTOSAT-2C)
+41599,CARTOSAT-2C,altitude,OK: current ~508 km vs nominal 505 km (delta +3)
+41599,CARTOSAT-2C,inclination,OK: 97.45 deg
+41599,CARTOSAT-2C,tle_age,OK: 0.2 days
+41948,CARTOSAT-2D,name,OK (CARTOSAT-2D)
+41948,CARTOSAT-2D,altitude,OK: current ~508 km vs nominal 505 km (delta +3)
+41948,CARTOSAT-2D,inclination,OK: 97.41 deg
+41948,CARTOSAT-2D,tle_age,OK: 0.2 days
+42767,CARTOSAT-2E,name,OK (CARTOSAT-2E)
+42767,CARTOSAT-2E,altitude,OK: current ~508 km vs nominal 505 km (delta +3)
+42767,CARTOSAT-2E,inclination,OK: 97.43 deg
+42767,CARTOSAT-2E,tle_age,OK: 0.2 days
+43111,CARTOSAT-2F,name,OK (CARTOSAT-2F)
+43111,CARTOSAT-2F,altitude,OK: current ~508 km vs nominal 505 km (delta +3)
+43111,CARTOSAT-2F,inclination,OK: 97.48 deg
+43111,CARTOSAT-2F,tle_age,OK: 0.3 days
+44804,CARTOSAT-3,name,OK (CARTOSAT-3)
+44804,CARTOSAT-3,altitude,OK: current ~508 km vs nominal 509 km (delta -1)
+44804,CARTOSAT-3,inclination,OK: 97.43 deg
+44804,CARTOSAT-3,tle_age,OK: 0.3 days
+37387,RESOURCESAT-2,name,OK (RESOURCESAT-2)
+37387,RESOURCESAT-2,altitude,OK: current ~820 km vs nominal 817 km (delta +3)
+37387,RESOURCESAT-2,inclination,OK: 98.76 deg
+37387,RESOURCESAT-2,tle_age,OK: 0.3 days
+41877,RESOURCESAT-2A,name,OK (RESOURCESAT-2A)
+41877,RESOURCESAT-2A,altitude,OK: current ~820 km vs nominal 817 km (delta +3)
+41877,RESOURCESAT-2A,inclination,OK: 98.75 deg
+41877,RESOURCESAT-2A,tle_age,OK: 0.2 days
+35931,OCEANSAT-2,name,OK (OCEANSAT-2)
+35931,OCEANSAT-2,altitude,WARN drift: current ~895 km vs nominal 720 km (delta +175)
+35931,OCEANSAT-2,inclination,OK: 98.23 deg
+35931,OCEANSAT-2,tle_age,OK: 0.3 days
+54361,EOS-06,name,OK (EOS-6 (OCEANSAT-3))
+54361,EOS-06,altitude,OK: current ~736 km vs nominal 740 km (delta -4)
+54361,EOS-06,inclination,OK: 98.36 deg
+54361,EOS-06,tle_age,OK: 0.3 days
+39086,SARAL,name,OK (SARAL)
+39086,SARAL,altitude,OK: current ~782 km vs nominal 790 km (delta -8)
+39086,SARAL,inclination,OK: 98.56 deg
+39086,SARAL,tle_age,OK: 0.3 days
+41790,SCATSAT-1,name,OK (SCATSAT 1)
+41790,SCATSAT-1,altitude,WARN drift: current ~631 km vs nominal 720 km (delta -89)
+41790,SCATSAT-1,inclination,OK: 98.12 deg
+41790,SCATSAT-1,tle_age,OK: 0.4 days
+43719,HYSIS,name,OK (HYSIS)
+43719,HYSIS,altitude,OK: current ~634 km vs nominal 636 km (delta -2)
+43719,HYSIS,inclination,OK: 97.98 deg
+43719,HYSIS,tle_age,OK: 0.3 days
+44078,EMISAT,name,OK (EMISAT)
+44078,EMISAT,altitude,OK: current ~746 km vs nominal 748 km (delta -2)
+44078,EMISAT,inclination,OK: 98.46 deg
+44078,EMISAT,tle_age,OK: 0.2 days
+34807,RISAT-2,existence,"OK (no GP, matches decayed status)"
+44233,RISAT-2B,name,OK (RISAT-2B)
+44233,RISAT-2B,altitude,OK: current ~564 km vs nominal 555 km (delta +9)
+44233,RISAT-2B,inclination,OK: 37.00 deg
+44233,RISAT-2B,tle_age,OK: 0.3 days
+44857,RISAT-2BR1,name,OK (RISAT-2BR1)
+44857,RISAT-2BR1,altitude,OK: current ~563 km vs nominal 576 km (delta -13)
+44857,RISAT-2BR1,inclination,OK: 36.96 deg
+44857,RISAT-2BR1,tle_age,OK: 0.3 days
+46905,EOS-01,name,OK (RISAT-2BR2)
+46905,EOS-01,altitude,OK: current ~563 km vs nominal 575 km (delta -12)
+46905,EOS-01,inclination,OK: 36.90 deg
+46905,EOS-01,tle_age,OK: 0.7 days
+51656,EOS-04,name,OK (EOS-4)
+51656,EOS-04,altitude,OK: current ~528 km vs nominal 535 km (delta -7)
+51656,EOS-04,inclination,OK: 97.51 deg
+51656,EOS-04,tle_age,OK: 0.2 days
+55562,EOS-07,existence,"OK (no GP, matches decayed status)"
+60454,EOS-08,name,OK (EOS-08)
+60454,EOS-08,altitude,OK: current ~414 km vs nominal 475 km (delta -61)
+60454,EOS-08,inclination,OK: 37.38 deg
+60454,EOS-08,tle_age,OK: 0.3 days
+65053,NISAR,name,OK (NISAR)
+65053,NISAR,altitude,OK: current ~750 km vs nominal 747 km (delta +3)
+65053,NISAR,inclination,OK: 98.41 deg
+65053,NISAR,tle_age,OK: 0.3 days
+40930,ASTROSAT,name,OK (ASTROSAT)
+40930,ASTROSAT,altitude,OK: current ~621 km vs nominal 650 km (delta -29)
+40930,ASTROSAT,inclination,OK: 6.00 deg
+40930,ASTROSAT,tle_age,OK: 0.5 days
+58694,XPOSAT,name,OK (XPOSAT)
+58694,XPOSAT,altitude,OK: current ~631 km vs nominal 650 km (delta -19)
+58694,XPOSAT,inclination,OK: 5.99 deg
+58694,XPOSAT,tle_age,WARN stale: 9.7 days
