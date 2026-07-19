@@ -1,0 +1,27 @@
+norad_id,cospar_id,name,aka,launch_date,ops_end,status,regime,nominal_alt_km,inclination_deg,category,defence,joint_mission,id_confidence,notes
+29710,2007-001B,CARTOSAT-2,,2007-01-10,2024-02-14,deorbited,SSO,635,97.9,EO_optical,false,,medium,Controlled deorbit completed 2024-02-14 (ISRO CMD exercise); primary for epochs 2019-2023 only
+32783,2008-021A,CARTOSAT-2A,,2008-04-28,,uncertain,SSO,635,98.0,EO_optical,true,,high,Operational status past ~2019 unclear; verify against ISSAR operational count before including as primary
+36795,2010-035A,CARTOSAT-2B,,2010-07-12,,uncertain,SSO,635,98.1,EO_optical,false,,high,Operational status past ~2019 unclear; same treatment as 2A
+41599,2016-040A,CARTOSAT-2C,,2016-06-22,,active,SSO,505,97.5,EO_optical,true,,high,
+41948,2017-008A,CARTOSAT-2D,,2017-02-15,,active,SSO,505,97.5,EO_optical,false,,high,
+42767,2017-036A,CARTOSAT-2E,,2017-06-23,,active,SSO,505,97.5,EO_optical,false,,high,
+43111,2018-004A,CARTOSAT-2F,,2018-01-12,,active,SSO,505,97.5,EO_optical,false,,high,
+44804,2019-081A,CARTOSAT-3,,2019-11-27,,active,SSO,509,97.5,EO_optical,false,,high,Highest-resolution Indian EO asset; key RQ3 primary
+37387,2011-015A,RESOURCESAT-2,,2011-04-20,,active,SSO,817,98.7,EO_optical,false,,high,
+41877,2016-074A,RESOURCESAT-2A,,2016-12-07,,active,SSO,817,98.7,EO_optical,false,,high,
+35931,2009-051A,OCEANSAT-2,,2009-09-23,,uncertain,SSO,720,98.3,EO_ocean,false,,high,Scatterometer failed 2014; residual OCM operations unclear — verify before including as primary
+54361,2022-158A,EOS-06,OCEANSAT-3,2022-11-26,,active,SSO,740,98.4,EO_ocean,false,,high,
+39086,2013-009A,SARAL,,2013-02-25,,active,SSO,790,98.5,altimetry,false,CNES,high,ISRO-CNES joint; drifting orbit since 2016 (no longer strict repeat SSO ground track)
+41790,2016-059A,SCATSAT-1,,2016-09-26,2021-02-28,retired,SSO,720,98.1,scatterometry,false,,high,Mission ended ~Feb 2021; primary for 2019-2020 epochs only — verify exact EOL date
+43719,2018-096A,HYSIS,,2018-11-29,,active,SSO,636,97.96,EO_hyperspectral,false,,high,
+44078,2019-018A,EMISAT,,2019-04-01,,active,SSO,748,98.4,defence_ELINT,true,DRDO,high,DRDO/ISRO; TLE availability good but ops status not publicly confirmed
+34807,2009-019A,RISAT-2,,2009-04-20,2022-10-30,decayed,inclined_LEO,550,41.2,SAR_EO,true,,high,Uncontrolled reentry 2022-10-30; primary for 2019-2022 epochs only
+44233,2019-028A,RISAT-2B,,2019-05-22,,active,inclined_LEO,555,37.0,SAR_EO,true,,high,
+44857,2019-089A,RISAT-2BR1,,2019-12-11,,active,inclined_LEO,576,37.0,SAR_EO,true,,high,
+46905,2020-081A,EOS-01,RISAT-2BR2,2020-11-07,,active,inclined_LEO,575,36.9,SAR_EO,true,,high,
+51656,2022-013A,EOS-04,EOS-4,2022-02-14,,active,SSO,535,97.6,SAR_EO,false,,high,Also designated RISAT-1A; CelesTrak catalogs as EOS-4 (single-digit form)
+55562,2023-019A,EOS-07,MICROSAT-2B,2023-02-10,2024-11-30,decayed,inclined_LEO,450,37.2,EO_tech_demo,false,,high,Deactivated late 2024 (approx); reentered from 450 km orbit — no GP data as of 2026-07; pin decay epoch via gp_history in Phase 2
+60454,2024-147A,EOS-08,MICROSAT-2C,2024-08-16,,uncertain,inclined_LEO,475,37.4,EO_tech_demo,false,,high,1-year design life expired Aug 2025; ops status mid-2026 unconfirmed — verify
+65053,2025-163A,NISAR,,2025-07-30,,active,SSO,747,98.4,SAR_EO,false,NASA,high,NASA-ISRO joint; include as Indian-operated primary with joint-mission caveat in paper
+40930,2015-052A,ASTROSAT,,2015-09-28,,active,inclined_LEO,650,6.0,science_astronomy,false,,high,Science LEO asset; include if scope = all operational Indian LEO not just EO
+58694,2024-001A,XPOSAT,,2024-01-01,,active,inclined_LEO,650,6.0,science_astronomy,false,,high,Science LEO asset; same scope note as AstroSat
